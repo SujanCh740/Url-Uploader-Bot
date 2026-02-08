@@ -44,7 +44,7 @@ class Config(object):
     LOGGER = logging
     OWNER_ID = int(os.environ.get("OWNER_ID", "5123039684"))
     SESSION_NAME = "Url-Uploader-Bot"
-    UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "Sujan_BotZ")
+    UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "-1002438300146")
 
     TG_MIN_FILE_SIZE = 2194304000
     BOT_USERNAME = os.environ.get("BOT_USERNAME", "NsysshsfssgBot")
