@@ -29,7 +29,7 @@ class Config(object):
     DEF_WATER_MARK_FILE = "@Sujan_BotZ"
 
     ADMIN = set(
-        int(x) for x in environ.get("ADMIN", "").split()
+        int(x) for x in environ.get("ADMIN", "5123039684").split()
         if x.isdigit()
     )
 
@@ -40,18 +40,18 @@ class Config(object):
 
     DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", ""))
+    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-1002337612955"))
     LOGGER = logging
-    OWNER_ID = int(os.environ.get("OWNER_ID", ""))
-    SESSION_NAME = "UploaderXNTBot"
+    OWNER_ID = int(os.environ.get("OWNER_ID", "5123039684"))
+    SESSION_NAME = "Url-Uploader-Bot"
     UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "")
 
     TG_MIN_FILE_SIZE = 2194304000
-    BOT_USERNAME = os.environ.get("BOT_USERNAME", "")
+    BOT_USERNAME = os.environ.get("BOT_USERNAME", "NsysshsfssgBot")
     ADL_BOT_RQ = {}
 
     # Set False off else True
-    TRUE_OR_FALSE = os.environ.get("TRUE_OR_FALSE", "").lower() == "true"
+    TRUE_OR_FALSE = os.environ.get("TRUE_OR_FALSE", "True").lower() == "true"
 
     # Shortlink settings
     SHORT_DOMAIN = environ.get("SHORT_DOMAIN", "")
