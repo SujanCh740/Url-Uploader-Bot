@@ -121,7 +121,7 @@ async def ddl_call_back(bot, update):
 
     # Add cancel button
     cancel_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Cancel Download", callback_data=f"cancel_dl_{cancel_id}")]
+        [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_dl_{cancel_id}")]
     ])
 
     await update.message.edit_caption(
@@ -171,7 +171,7 @@ async def ddl_call_back(bot, update):
     # Check if download was cancelled
     if cancel_id in active_downloads and active_downloads[cancel_id].get("cancelled"):
         await update.message.edit_caption(
-            caption="❌ Download Cancelled",
+            caption="⛔ Download Cancelled",
             reply_markup=None,
             parse_mode=enums.ParseMode.HTML
         )
@@ -211,7 +211,7 @@ async def ddl_call_back(bot, update):
         # Add cancel button for upload
         upload_cancel_id = f"{update.from_user.id}_{int(time.time())}_upload"
         upload_cancel_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("❌ Cancel Upload", callback_data=f"cancel_ul_{upload_cancel_id}")]
+            [InlineKeyboardButton("⛔ Cancel Upload", callback_data=f"cancel_ul_{upload_cancel_id}")]
         ])
 
         await update.message.edit_caption(
@@ -355,7 +355,7 @@ async def ddl_call_back(bot, update):
 
             if upload_cancelled:
                 await update.message.edit_caption(
-                    caption="❌ Upload Cancelled",
+                    caption="⛔ Upload Cancelled",
                     reply_markup=None,
                     parse_mode=enums.ParseMode.HTML
                 )
@@ -398,7 +398,7 @@ async def download_coroutine(bot, session, url, file_name, chat_id, message_id, 
 
             # Update message with cancel button
             cancel_markup = InlineKeyboardMarkup([
-                [InlineKeyboardButton("❌ Cancel Download", callback_data=f"cancel_dl_{cancel_id}")]
+                [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_dl_{cancel_id}")]
             ])
 
             try:
