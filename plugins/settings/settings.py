@@ -13,10 +13,13 @@ async def OpenSettings(m: "types.Message"):
         await m.edit("Failed to fetch your data from database!")
         return
     upload_as_doc = user_data.get("upload_as_doc", False)
+    auto_unzip = user_data.get("auto_unzip", False)
     thumbnail = user_data.get("thumbnail", None)
     buttons_markup = [
         [types.InlineKeyboardButton(f" {'📹 VIDEO' if upload_as_doc else '📁 DOCUMENT'}",
                                     callback_data="triggerUploadMode")],
+        [types.InlineKeyboardButton(f"{'📦 AUTO UNZIP: ON ✅' if auto_unzip else '📦 AUTO UNZIP: OFF ❌'}",
+                                    callback_data="triggerAutoUnzip")],
         [types.InlineKeyboardButton(f"{'🏞 CHANGE' if thumbnail else '🏞 SET'} THUMBNAIL",
                                     callback_data="setThumbnail")]
     ]
