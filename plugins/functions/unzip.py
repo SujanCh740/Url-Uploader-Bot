@@ -147,6 +147,11 @@ async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbna
     Returns True if upload successful.
     """
     try:
+        # Get caption - use file name if CUSTOM_CAPTION_UL_FILE is empty
+        caption = Translation.CUSTOM_CAPTION_UL_FILE
+        if not caption or caption.strip() == "":
+            caption = file_name
+
         if is_video_file(file_path):
             # Upload as video
             try:
@@ -155,7 +160,7 @@ async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbna
                 await update.message.reply_video(
                     video=file_path,
                     file_name=file_name,
-                    caption=Translation.CUSTOM_CAPTION_UL_FILE,
+                    caption=caption,
                     duration=duration,
                     width=width,
                     height=height,
@@ -182,7 +187,7 @@ async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbna
             document=file_path,
             file_name=file_name,
             thumb=thumbnail,
-            caption=Translation.CUSTOM_CAPTION_UL_FILE,
+            caption=caption,
             parse_mode=enums.ParseMode.HTML,
             progress=progress_for_pyrogram,
             progress_args=(
