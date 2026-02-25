@@ -147,16 +147,13 @@ async def button(bot, update):
             await db.set_auto_unzip(update.from_user.id, True)
         await OpenSettings(update.message)
 
-    elif cb_data == "triggerCaptionStyle":
+    elif cb_data == "triggerAutoCaption":
         await update.answer()
-        caption_style = await db.get_caption_style(update.from_user.id)
-        # Cycle through: none -> bold -> mono -> none
-        if caption_style == "none":
-            await db.set_caption_style(update.from_user.id, "bold")
-        elif caption_style == "bold":
-            await db.set_caption_style(update.from_user.id, "mono")
+        auto_caption = await db.get_auto_caption(update.from_user.id)
+        if auto_caption:
+            await db.set_auto_caption(update.from_user.id, False)
         else:
-            await db.set_caption_style(update.from_user.id, "none")
+            await db.set_auto_caption(update.from_user.id, True)
         await OpenSettings(update.message)
 
     elif "close" in cb_data:
