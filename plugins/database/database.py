@@ -19,7 +19,8 @@ class Database:
             upload_as_doc=False,
             thumbnail=None,
             caption=None,
-            auto_unzip=False
+            auto_unzip=False,
+            auto_caption=False
         )
 
     async def add_user(self, id):
@@ -74,6 +75,13 @@ class Database:
     async def get_auto_unzip(self, id):
         user = await self.col.find_one({'id': int(id)})
         return user.get('auto_unzip', False)
+
+    async def set_auto_caption(self, id, auto_caption):
+        await self.col.update_one({'id': id}, {'$set': {'auto_caption': auto_caption}})
+
+    async def get_auto_caption(self, id):
+        user = await self.col.find_one({'id': int(id)})
+        return user.get('auto_caption', False)
 
     async def get_user_data(self, id) -> dict:
         user = await self.col.find_one({'id': int(id)})
