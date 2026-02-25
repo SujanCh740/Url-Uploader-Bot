@@ -43,7 +43,7 @@ async def get_real_filename_from_url(session, url):
             if content_disposition:
                 # Try to extract filename from Content-Disposition
                 # Format: attachment; filename="filename.mkv" or attachment; filename*=UTF-8''filename.mkv
-                filename_match = re.findall(r'filename[*]?=["']?(?:UTF-8'')?([^"';]+)["']?', content_disposition)
+                filename_match = re.findall(r"filename[*]?=[\"']?(?:UTF-8'')?([^\"';]+)[\"']?", content_disposition)
                 if filename_match:
                     filename = filename_match[-1].strip()
                     # URL decode the filename
