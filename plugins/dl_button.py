@@ -25,7 +25,7 @@ from hachoir.parser import createParser
 from PIL import Image
 from pyrogram import enums
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from plugins.functions.unzip import handle_auto_unzip, is_zip_file
+from plugins.functions.unzip import handle_auto_unzip, is_zip_file, fix_unknown_video_extension
 
 # Global dictionary to track active downloads for cancellation
 active_downloads = {}
@@ -43,7 +43,7 @@ async def get_real_filename_from_url(session, url):
             if content_disposition:
                 # Try to extract filename from Content-Disposition
                 # Format: attachment; filename="filename.mkv" or attachment; filename*=UTF-8''filename.mkv
-                filename_match = re.findall(r'filename[*]?=["\']?(?:UTF-8\'\')?([^"\';]+)["\']?', content_disposition)
+                filename_match = re.findall(r'filename[*]?=["']?(?:UTF-8'')?([^"';]+)["']?', content_disposition)
                 if filename_match:
                     filename = filename_match[-1].strip()
                     # URL decode the filename
@@ -188,6 +188,10 @@ async def ddl_call_back(bot, update):
     if download_success and os.path.exists(download_directory):
         end_one = datetime.now()
 
+        # Fix _0.unknown_video extension if present
+        download_directory = fix_unknown_video_extension(download_directory)
+        custom_file_name = os.path.basename(download_directory)
+
         # Check for auto unzip
         auto_unzip_done = await handle_auto_unzip(
             bot, 
@@ -220,8 +224,27 @@ async def ddl_call_back(bot, update):
         try:
             file_size = os.stat(download_directory).st_size
         except FileNotFoundError as exc:
-            download_directory = os.path.splitext(download_directory)[0] + "." + "mkv"
-            file_size = os.stat(download_directory).st_size
+            # Check for _0.unknown_video file
+            unknown_video_path = os.path.splitext(download_directory)[0] + "_0.unknown_video"
+            mkv_path = os.path.splitext(download_directory)[0] + ".mkv"
+
+            if os.path.isfile(unknown_video_path):
+                try:
+                    os.rename(unknown_video_path, mkv_path)
+                    download_directory = mkv_path
+                    custom_file_name = os.path.basename(mkv_path)
+                    file_size = os.stat(download_directory).st_size
+                except Exception as e:
+                    logger.error(f"Error renaming file: {e}")
+                    download_directory = os.path.splitext(download_directory)[0] + "." + "mkv"
+                    file_size = os.stat(download_directory).st_size
+            elif os.path.isfile(mkv_path):
+                download_directory = mkv_path
+                custom_file_name = os.path.basename(mkv_path)
+                file_size = os.stat(download_directory).st_size
+            else:
+                download_directory = os.path.splitext(download_directory)[0] + "." + "mkv"
+                file_size = os.stat(download_directory).st_size
 
         if file_size > Config.TG_MAX_FILE_SIZE:
             await update.message.edit_caption(
