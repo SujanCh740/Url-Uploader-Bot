@@ -147,15 +147,18 @@ async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbna
     Returns True if upload successful.
     """
     try:
-        # Determine caption: auto_caption uses filename with underscores removed
-        auto_caption_enabled = await db.get_auto_caption(update.from_user.id)
-        if auto_caption_enabled:
-            caption = file_name.replace("_", " ")
+        # Determine caption based on caption_style setting
+        caption_style = await db.get_caption_style(update.from_user.id)
+        base_caption = Translation.CUSTOM_CAPTION_UL_FILE
+        if not base_caption or base_caption.strip() == "":
+            base_caption = file_name.replace("_", " ")
+
+        if caption_style == "bold":
+            caption = f"<b>{base_caption}</b>"
+        elif caption_style == "mono":
+            caption = f"<code>{base_caption}</code>"
         else:
-            # Use CUSTOM_CAPTION_UL_FILE or fallback to filename
-            caption = Translation.CUSTOM_CAPTION_UL_FILE
-            if not caption or caption.strip() == "":
-                caption = file_name
+            caption = base_caption
 
         if is_video_file(file_path):
             # Upload as video
