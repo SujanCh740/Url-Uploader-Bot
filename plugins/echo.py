@@ -4,10 +4,12 @@ import os
 import time
 import random
 import logging
+import re
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 import requests, urllib.parse, filetype, os, time, shutil, tldextract, asyncio, json, math
+from urllib.parse import urlparse, unquote
 from PIL import Image
 from plugins.config import Config
 from plugins.script import Translation
@@ -32,10 +34,51 @@ from pyrogram.types import Thumbnail
 cookies_file = 'cookies.txt'
 
 
+async def get_filename_from_url(url):
+    """
+    Get the real filename from URL by checking Content-Disposition header.
+    Falls back to URL basename if no Content-Disposition header is found.
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.head(url, headers=headers, allow_redirects=True, timeout=30)
+
+        # Check Content-Disposition header for filename
+        content_disposition = response.headers.get('Content-Disposition', '')
+        if content_disposition:
+            # Try to extract filename from Content-Disposition
+            # Format: attachment; filename="filename.mkv" or attachment; filename*=UTF-8''filename.mkv
+            filename_match = re.findall(r'filename[*]?=["\']?(?:UTF-8\'\')?([^"\';]+)["\']?', content_disposition)
+            if filename_match:
+                filename = filename_match[-1].strip()
+                # URL decode the filename
+                filename = unquote(filename)
+                # Remove any path components, keep only the filename
+                filename = os.path.basename(filename)
+                if filename:
+                    logger.info(f"Found filename from Content-Disposition: {filename}")
+                    return filename
+
+        # Fallback: try to get filename from URL
+        parsed_url = urlparse(url)
+        url_filename = os.path.basename(unquote(parsed_url.path))
+        if url_filename and '.' in url_filename:
+            logger.info(f"Using filename from URL: {url_filename}")
+            return url_filename
+
+    except Exception as e:
+        logger.warning(f"Error getting filename from headers: {e}")
+
+    # Final fallback: use URL basename
+    parsed_url = urlparse(url)
+    return os.path.basename(unquote(parsed_url.path)) or "unknown_file"
+
 
 @Client.on_message(filters.private & filters.regex(pattern=".*http.*"))
 async def echo(bot, update):
-    if update.from_user.id != Config.OWNER_ID:  
+    if update.from_user.id != Config.OWNER_ID:
         if not await check_verification(bot, update.from_user.id) and Config.TRUE_OR_FALSE:
             button = [[
                 InlineKeyboardButton("✓⃝ Vᴇʀɪꜰʏ ✓⃝", url=await get_token(bot, update.from_user.id, f"https://telegram.me/{Config.BOT_USERNAME}?start="))
@@ -173,7 +216,7 @@ async def echo(bot, update):
         if "This video is only available for registered users." in error_message:
             error_message += Translation.SET_CUSTOM_USERNAME_PASSWORD
         await chk.delete()
-        
+
         time.sleep(10)
         await bot.send_message(
             chat_id=update.chat.id,
@@ -205,7 +248,7 @@ async def echo(bot, update):
                     format_string = formats.get("format")
                 if "DASH" in format_string.upper():
                     continue
-          
+
                 format_ext = formats.get("ext")
                 if formats.get('filesize'):
                     size = formats['filesize']
@@ -259,9 +302,9 @@ async def echo(bot, update):
                     InlineKeyboardButton(
                         "🎵 ᴍᴘ𝟹 " + "(" + "320 ᴋʙᴘs" + ")", callback_data=cb_string_320.encode("UTF-8"))
                 ])
-                inline_keyboard.append([                 
+                inline_keyboard.append([
                     InlineKeyboardButton(
-                        "🔒 ᴄʟᴏsᴇ", callback_data='close')               
+                        "🔒 ᴄʟᴏsᴇ", callback_data='close')
                 ])
         else:
             format_id = response_json["format_id"]
@@ -286,7 +329,10 @@ async def echo(bot, update):
             reply_to_message_id=update.id
         )
     else:
-        #fallback for nonnumeric port a.k.a seedbox.io
+        #fallback for nonnumeric port a.k.a seedbox.io - direct download links
+        # Get the real filename from the URL
+        detected_filename = await get_filename_from_url(url)
+
         inline_keyboard = []
         cb_string_file = "{}={}={}".format(
             "file", "LFO", "NONE")
@@ -300,9 +346,15 @@ async def echo(bot, update):
         ])
         reply_markup = InlineKeyboardMarkup(inline_keyboard)
         await chk.delete(True)
+
+        # Show the detected filename in the message
+        message_text = f"<b>Sᴇʟᴇᴄᴛ Yᴏᴜʀ Fᴏʀᴍᴀᴛ 👇</b>\n\n"
+        message_text += f"<b>📁 Fɪʟᴇ Nᴀᴍᴇ:</b> <code>{detected_filename}</code>\n\n"
+        message_text += Translation.SET_CUSTOM_USERNAME_PASSWORD
+
         await bot.send_message(
             chat_id=update.chat.id,
-            text=Translation.FORMAT_SELECTION,
+            text=message_text,
             reply_markup=reply_markup,
             disable_web_page_preview=True,
             reply_to_message_id=update.id
