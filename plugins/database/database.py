@@ -20,7 +20,7 @@ class Database:
             thumbnail=None,
             caption=None,
             auto_unzip=False,
-            auto_caption=False
+            caption_style="none"
         )
 
     async def add_user(self, id):
@@ -76,12 +76,12 @@ class Database:
         user = await self.col.find_one({'id': int(id)})
         return user.get('auto_unzip', False)
 
-    async def set_auto_caption(self, id, auto_caption):
-        await self.col.update_one({'id': id}, {'$set': {'auto_caption': auto_caption}})
+    async def set_caption_style(self, id, caption_style):
+        await self.col.update_one({'id': id}, {'$set': {'caption_style': caption_style}})
 
-    async def get_auto_caption(self, id):
+    async def get_caption_style(self, id):
         user = await self.col.find_one({'id': int(id)})
-        return user.get('auto_caption', False)
+        return user.get('caption_style', "none")
 
     async def get_user_data(self, id) -> dict:
         user = await self.col.find_one({'id': int(id)})
