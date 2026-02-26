@@ -16,6 +16,26 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
+def is_admin_user(user_id):
+    """Check if user is admin (OWNER_ID or in ADMIN set)"""
+    try:
+        user_id_int = int(user_id)
+        owner_id_int = int(Config.OWNER_ID)
+        admin_list = [int(x) for x in Config.ADMIN] if Config.ADMIN else []
+    except (ValueError, TypeError):
+        user_id_int = user_id
+        owner_id_int = Config.OWNER_ID
+        admin_list = list(Config.ADMIN) if Config.ADMIN else []
+    
+    is_owner = user_id_int == owner_id_int
+    is_in_admin = user_id_int in admin_list
+    
+    print(f"[DEBUG CALLBACKS] user_id: {user_id_int}, OWNER_ID: {owner_id_int}, ADMIN: {admin_list}")
+    print(f"[DEBUG CALLBACKS] is_owner: {is_owner}, is_in_admin: {is_in_admin}")
+    
+    return is_owner or is_in_admin
+
+
 
 @Client.on_callback_query()
 async def button(bot, update):
@@ -104,7 +124,7 @@ async def button(bot, update):
     
     # Admin - Bot Status
     elif cb_data == "botStatus":
-        if update.from_user.id not in Config.ADMIN:
+        if not is_admin_user(update.from_user.id):
             await update.answer("⛔ Only bot admin can access this!", show_alert=True)
             return
         await update.answer()
@@ -140,7 +160,7 @@ async def button(bot, update):
     
     # Admin - Total Users
     elif cb_data == "totalUsers":
-        if update.from_user.id not in Config.ADMIN:
+        if not is_admin_user(update.from_user.id):
             await update.answer("⛔ Only bot admin can access this!", show_alert=True)
             return
         await update.answer()
@@ -159,7 +179,7 @@ async def button(bot, update):
     
     # Admin - Broadcast Menu
     elif cb_data == "broadcastMenu":
-        if update.from_user.id not in Config.ADMIN:
+        if not is_admin_user(update.from_user.id):
             await update.answer("⛔ Only bot admin can access this!", show_alert=True)
             return
         await update.answer()
@@ -177,7 +197,7 @@ async def button(bot, update):
     
     # Admin - Start Broadcast (placeholder - actual broadcast logic should be implemented)
     elif cb_data == "startBroadcast":
-        if update.from_user.id not in Config.ADMIN:
+        if not is_admin_user(update.from_user.id):
             await update.answer("⛔ Only bot admin can access this!", show_alert=True)
             return
         await update.answer()
@@ -261,7 +281,7 @@ async def button(bot, update):
 
     elif cb_data == "triggerPrivateMode":
         # Only allow admin to toggle private mode
-        if update.from_user.id not in Config.ADMIN:
+        if not is_admin_user(update.from_user.id):
             await update.answer("⛔ Only bot admin can access this setting!", show_alert=True)
             return
         await update.answer()
