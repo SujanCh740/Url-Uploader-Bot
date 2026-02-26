@@ -15,6 +15,7 @@ async def OpenSettings(m: "types.Message"):
     upload_as_doc = user_data.get("upload_as_doc", False)
     auto_unzip = user_data.get("auto_unzip", False)
     auto_caption = user_data.get("auto_caption", False)
+    private_mode = user_data.get("private_mode", False)
     thumbnail = user_data.get("thumbnail", None)
     buttons_markup = [
         [types.InlineKeyboardButton(f" {'📹 UPLOAD AS VIDEO' if upload_as_doc else '📁 UPLOAD AS DOCUMENT'}",
@@ -23,6 +24,8 @@ async def OpenSettings(m: "types.Message"):
                                     callback_data="triggerAutoCaption")],
         [types.InlineKeyboardButton(f"{'📦 AUTO UNZIP: ON ✅' if auto_unzip else '📦 AUTO UNZIP: OFF ❌'}",
                                     callback_data="triggerAutoUnzip")],
+        [types.InlineKeyboardButton(f"{'🔒 PRIVATE MODE: ON ✅' if private_mode else '🌐 PUBLIC MODE: ON ✅'}",
+                                    callback_data="triggerPrivateMode")],
         [types.InlineKeyboardButton(f"{'🏞 CHANGE' if thumbnail else '🏞 SET'} THUMBNAIL",
                                     callback_data="setThumbnail")]
     ]
