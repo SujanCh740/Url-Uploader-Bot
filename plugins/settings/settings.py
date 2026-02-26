@@ -6,8 +6,8 @@ from plugins.database.database import db
 from plugins.database.add import AddUser
 from pyrogram import Client
 
-async def OpenSettings(m: "types.Message"):
-    usr_id = m.chat.id
+async def OpenSettings(m: "types.Message", user_id: int = None):
+    usr_id = user_id if user_id else m.chat.id
     user_data = await db.get_user_data(usr_id)
     if not user_data:
         await m.edit("Failed to fetch your data from database!")
@@ -17,6 +17,10 @@ async def OpenSettings(m: "types.Message"):
     auto_caption = user_data.get("auto_caption", False)
     private_mode = user_data.get("private_mode", False)
     thumbnail = user_data.get("thumbnail", None)
+    
+    # Check if user is admin
+    is_admin = usr_id in Config.ADMIN
+    
     buttons_markup = [
         [types.InlineKeyboardButton(f" {'📹 UPLOAD AS VIDEO' if upload_as_doc else '📁 UPLOAD AS DOCUMENT'}",
                                     callback_data="triggerUploadMode")],
@@ -24,11 +28,15 @@ async def OpenSettings(m: "types.Message"):
                                     callback_data="triggerAutoCaption")],
         [types.InlineKeyboardButton(f"{'📦 AUTO UNZIP: ON ✅' if auto_unzip else '📦 AUTO UNZIP: OFF ❌'}",
                                     callback_data="triggerAutoUnzip")],
-        [types.InlineKeyboardButton(f"{'🔒 PRIVATE MODE: ON ✅' if private_mode else '🌐 PUBLIC MODE: ON ✅'}",
-                                    callback_data="triggerPrivateMode")],
-        [types.InlineKeyboardButton(f"{'🏞 CHANGE' if thumbnail else '🏞 SET'} THUMBNAIL",
-                                    callback_data="setThumbnail")]
     ]
+    
+    # Only show Private/Public Mode toggle for admins
+    if is_admin:
+        buttons_markup.append([types.InlineKeyboardButton(f"{'🔒 PRIVATE MODE: ON ✅' if private_mode else '🌐 PUBLIC MODE: ON ✅'}",
+                                    callback_data="triggerPrivateMode")])
+    
+    buttons_markup.append([types.InlineKeyboardButton(f"{'🏞 CHANGE' if thumbnail else '🏞 SET'} THUMBNAIL",
+                                    callback_data="setThumbnail")])
     if thumbnail:
         buttons_markup.append([types.InlineKeyboardButton("🏞 SHOW THUMBNAIL",
                                                           callback_data="showThumbnail")])
@@ -54,4 +62,4 @@ async def OpenSettings(m: "types.Message"):
 async def settings_handler(bot: Client, m: Message):
     await AddUser(bot, m)
     editable = await m.reply_text("**Checking...**", quote=True)
-    await OpenSettings(editable)
+    await OpenSettings(editable, user_id=m.from_user.id)
