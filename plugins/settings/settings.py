@@ -14,8 +14,24 @@ async def OpenSettings(m: "types.Message", user_id: int = None):
         return
     thumbnail = user_data.get("thumbnail", None)
     
+    # Convert to int for comparison
+    try:
+        usr_id_int = int(usr_id)
+        owner_id_int = int(Config.OWNER_ID)
+        admin_list = [int(x) for x in Config.ADMIN] if Config.ADMIN else []
+    except (ValueError, TypeError) as e:
+        print(f"[ERROR] ID conversion failed: {e}")
+        usr_id_int = usr_id
+        owner_id_int = Config.OWNER_ID
+        admin_list = list(Config.ADMIN) if Config.ADMIN else []
+    
     # Check if user is admin (OWNER_ID or in ADMIN set)
-    is_admin = (usr_id == Config.OWNER_ID) or (usr_id in Config.ADMIN)
+    is_owner = usr_id_int == owner_id_int
+    is_in_admin = usr_id_int in admin_list
+    is_admin = is_owner or is_in_admin
+    
+    print(f"[DEBUG] usr_id: {usr_id_int}, OWNER_ID: {owner_id_int}, ADMIN: {admin_list}")
+    print(f"[DEBUG] is_owner: {is_owner}, is_in_admin: {is_in_admin}, is_admin: {is_admin}")
     
     buttons_markup = [
         [types.InlineKeyboardButton("👤 USER COMMANDS", callback_data="userCommands")],
@@ -84,8 +100,21 @@ async def OpenAdminCommands(m: "types.Message", user_id: int = None):
     """Open Admin Commands submenu - only accessible by admins"""
     usr_id = user_id if user_id else m.chat.id
     
-    # Check if user is admin (OWNER_ID or in ADMIN set)
-    if (usr_id != Config.OWNER_ID) and (usr_id not in Config.ADMIN):
+    # Convert to int for comparison
+    try:
+        usr_id_int = int(usr_id)
+        owner_id_int = int(Config.OWNER_ID)
+        admin_list = [int(x) for x in Config.ADMIN] if Config.ADMIN else []
+    except (ValueError, TypeError):
+        usr_id_int = usr_id
+        owner_id_int = Config.OWNER_ID
+        admin_list = list(Config.ADMIN) if Config.ADMIN else []
+    
+    # Check if user is admin
+    is_owner = usr_id_int == owner_id_int
+    is_in_admin = usr_id_int in admin_list
+    
+    if not is_owner and not is_in_admin:
         await m.edit("⛔ You are not authorized to access this menu!")
         return
     
