@@ -269,7 +269,8 @@ async def ddl_call_back(bot, update):
                 upload_caption = description if description else custom_file_name
 
             try:
-                if (await db.get_upload_as_doc(update.from_user.id)) is False:
+                if await db.get_upload_as_doc(update.from_user.id):
+                    # Upload as Document
                     thumbnail = await Gthumb01(bot, update)
                     await update.message.reply_document(
                         document=download_directory,
@@ -285,6 +286,7 @@ async def ddl_call_back(bot, update):
                         )
                     )
                 else:
+                    # Upload as Video
                     width, height, duration = await Mdata01(download_directory)
                     thumb_image_path = await Gthumb02(bot, update, duration, download_directory)
                     await update.message.reply_video(
