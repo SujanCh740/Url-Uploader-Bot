@@ -45,7 +45,7 @@ Usᴇ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴋɴᴏᴡ ʜᴏᴡ ᴛᴏ ᴜsᴇ ᴍ
 ┣ 📁 Tᴏᴛᴀʟ : {2}
 ┣ 🚀 Sᴘᴇᴇᴅ : {3}/s
 ┣ 🕒 Tɪᴍᴇ : {4}
-┗━━━━━━━━━━━━━━━━━━━━
+┗━━━━━━━━━━━━━━━━━━━
 """
 
     PROGRES = """
@@ -124,12 +124,12 @@ Usᴇ ʜᴇʟᴘ ʙᴜᴛᴛᴏɴ ᴛᴏ ᴋɴᴏᴡ ʜᴏᴡ ᴛᴏ ᴜsᴇ ᴍ
     UPLOAD_START = "📤 Uploading... 📤"
     RCHD_BOT_API_LIMIT = "size greater than maximum allowed size (50MB). Neverthless, trying to upload."
     RCHD_TG_API_LIMIT = "Downloaded in {} seconds.\nDetected File Size: {}\nSorry. But, I cannot upload files greater than 2000MB due to Telegram API limitations."
-    AFTER_SUCCESSFUL_UPLOAD_MSG_WITH_TS = "**𝘛𝘏𝘈𝘕𝘒𝘚 𝘍𝘖𝘙 𝘜𝘚𝘐𝘕𝘎 𝘔𝘌** 🥰"
+    AFTER_SUCCESSFUL_UPLOAD_MSG_WITH_TS = "**Task Completed** 🥰"
     SAVED_CUSTOM_THUMB_NAIL = "**SAVED THUMBNAIL** ✅"
     DEL_ETED_CUSTOM_THUMB_NAIL = "**DELETED THUMBNAIL** ✅"
     FF_MPEG_DEL_ETED_CUSTOM_MEDIA = "✅ Media cleared succesfully."
-    CUSTOM_CAPTION_UL_FILE = " "
-    NO_CUSTOM_THUMB_NAIL_FOUND = "ɴᴏ ᴄᴜsᴛᴏᴍ ᴛʜᴜᴍʙɴᴀɪʟ"
+    CUSTOM_CAPTION_UL_FILE = "<code>{file_name}</code>"
+    NO_CUSTOM_THUMB_NAIL_FOUND = "Nᴏ Cᴜsᴛᴏᴍ Tʜᴜᴍʙɴᴀɪʟ"
     NO_VOID_FORMAT_FOUND = "ERROR... <code>{}</code>"
     FILE_NOT_FOUND = "Error, File not Found!!"
     FF_MPEG_RO_BOT_AD_VER_TISE_MENT = "Join : @Sujan_BotZ \n For the list of Telegram bots. "
