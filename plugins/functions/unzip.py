@@ -287,7 +287,7 @@ async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_d
             cancel_markup = None
             if cancel_id:
                 cancel_markup = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+                    [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_unzip_{cancel_id}")]
                 ])
 
             await update.message.edit_caption(
@@ -319,7 +319,7 @@ async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_d
     # Final status message
     if uploaded_count > 0:
         await update.message.edit_caption(
-            caption=f"✅ Auto Unzip Complete!\n\n📤 Unzip Success: {uploaded_count} files\n❌ Unzip Failed: {failed_count} files",
+            caption=f"✅ Auto Unzip Completed!\n\n📤 Unzip Success: {uploaded_count} Files\n❌ Unzip Failed: {failed_count} Files",
             reply_markup=None
         )
         # Send unzip complete message after all files
@@ -369,7 +369,7 @@ async def handle_auto_unzip(bot, update, download_directory, tmp_directory_for_e
 
         # Create cancel button markup
         cancel_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+            [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_unzip_{cancel_id}")]
         ])
 
         # Update message with cancel button
@@ -416,7 +416,7 @@ async def handle_auto_unzip(bot, update, download_directory, tmp_directory_for_e
 
         # Update message with cancel button for upload phase
         cancel_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+            [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_unzip_{cancel_id}")]
         ])
 
         # Upload extracted files
