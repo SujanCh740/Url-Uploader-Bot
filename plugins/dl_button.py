@@ -19,7 +19,7 @@ from plugins.script import Translation
 from plugins.thumbnail import *
 from plugins.database.database import db
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
-from plugins.functions.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter
+from plugins.functions.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter, active_uploads
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
 from PIL import Image
@@ -222,6 +222,7 @@ async def ddl_call_back(bot, update):
 
         # Register active upload for cancellation
         active_downloads[upload_cancel_id] = {"cancelled": False}
+        active_uploads[upload_cancel_id] = {"cancelled": False}
 
         file_size = Config.TG_MAX_FILE_SIZE + 1
         try:
@@ -257,6 +258,8 @@ async def ddl_call_back(bot, update):
             )
             if upload_cancel_id in active_downloads:
                 del active_downloads[upload_cancel_id]
+            if upload_cancel_id in active_uploads:
+                del active_uploads[upload_cancel_id]
         else:
             start_time = time.time()
             upload_cancelled = False
@@ -264,9 +267,10 @@ async def ddl_call_back(bot, update):
             # Determine caption: auto_caption uses filename with underscores removed
             auto_caption_enabled = await db.get_auto_caption(update.from_user.id)
             if auto_caption_enabled:
-                upload_caption = custom_file_name.replace("_", " ")
+                upload_caption = f"<b>{custom_file_name.replace('_', ' ')}</b>"
             else:
-                upload_caption = description if description else custom_file_name
+                caption_text = description if description else custom_file_name
+                upload_caption = f"<b>{caption_text}</b>"
 
             try:
                 if (await db.get_upload_as_doc(update.from_user.id)) is False:
@@ -281,7 +285,8 @@ async def ddl_call_back(bot, update):
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 else:
@@ -301,7 +306,8 @@ async def ddl_call_back(bot, update):
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
 
@@ -319,7 +325,8 @@ async def ddl_call_back(bot, update):
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 elif tg_send_type == "vm":
@@ -334,7 +341,8 @@ async def ddl_call_back(bot, update):
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 else:
@@ -352,6 +360,8 @@ async def ddl_call_back(bot, update):
 
             if upload_cancel_id in active_downloads:
                 del active_downloads[upload_cancel_id]
+            if upload_cancel_id in active_uploads:
+                del active_uploads[upload_cancel_id]
 
             if upload_cancelled:
                 await update.message.edit_caption(
@@ -482,8 +492,14 @@ async def handle_cancel_callback(bot, update):
 
     elif cb_data.startswith("cancel_ul_"):
         cancel_id = cb_data.replace("cancel_ul_", "")
+        cancelled_any = False
         if cancel_id in active_downloads:
             active_downloads[cancel_id]["cancelled"] = True
+            cancelled_any = True
+        if cancel_id in active_uploads:
+            active_uploads[cancel_id]["cancelled"] = True
+            cancelled_any = True
+        if cancelled_any:
             await update.answer("Cancelling upload...", show_alert=False)
         else:
             await update.answer("Upload not found or already completed", show_alert=True)
