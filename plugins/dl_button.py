@@ -147,17 +147,15 @@ async def ddl_call_back(bot, update):
                 session,
                 youtube_dl_url,
                 download_directory,
-                update.message.chat.id,
-                update.message.id,
+                update.message,
                 c_time,
                 cancel_id,
                 custom_file_name
             )
         except asyncio.TimeoutError:
-            await bot.edit_message_text(
-                text=Translation.SLOW_URL_DECED,
-                chat_id=update.message.chat.id,
-                message_id=update.message.id
+            await update.message.edit_caption(
+                caption=Translation.SLOW_URL_DECED,
+                reply_markup=None
             )
             if cancel_id in active_downloads:
                 del active_downloads[cancel_id]
@@ -384,7 +382,7 @@ async def ddl_call_back(bot, update):
         )
 
 
-async def download_coroutine(bot, session, url, file_name, chat_id, message_id, start, cancel_id, display_file_name):
+async def download_coroutine(bot, session, url, file_name, message, start, cancel_id, display_file_name):
     downloaded = 0
     display_message = ""
 
@@ -396,14 +394,9 @@ async def download_coroutine(bot, session, url, file_name, chat_id, message_id, 
             if "text" in content_type and total_length < 500:
                 return await response.release()
 
-            # Update message with cancel button and visual progress bar
-            cancel_markup = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_dl_{cancel_id}")]
-            ])
-
             # Initial message with 0% progress
             await progress_for_download(
-                0, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+                0, total_length, message, start, display_file_name, cancel_id
             )
 
             with open(file_name, "wb") as f_handle:
@@ -425,12 +418,12 @@ async def download_coroutine(bot, session, url, file_name, chat_id, message_id, 
                     if round(diff % 5.00) == 0 or downloaded == total_length:
                         # Use the visual progress bar function
                         await progress_for_download(
-                            downloaded, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+                            downloaded, total_length, message, start, display_file_name, cancel_id
                         )
 
             # Show 100% completion
             await progress_for_download(
-                total_length, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+                total_length, total_length, message, start, display_file_name, cancel_id
             )
 
             return True
