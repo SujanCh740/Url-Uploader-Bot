@@ -19,7 +19,7 @@ from plugins.script import Translation
 from plugins.thumbnail import *
 from plugins.database.database import db
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
-from plugins.functions.display_progress import progress_for_pyrogram, progress_for_download, humanbytes, TimeFormatter
+from plugins.functions.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
 from PIL import Image
@@ -147,15 +147,17 @@ async def ddl_call_back(bot, update):
                 session,
                 youtube_dl_url,
                 download_directory,
-                update.message,
+                update.message.chat.id,
+                update.message.id,
                 c_time,
                 cancel_id,
                 custom_file_name
             )
         except asyncio.TimeoutError:
-            await update.message.edit_caption(
-                caption=Translation.SLOW_URL_DECED,
-                reply_markup=None
+            await bot.edit_message_text(
+                text=Translation.SLOW_URL_DECED,
+                chat_id=update.message.chat.id,
+                message_id=update.message.id
             )
             if cancel_id in active_downloads:
                 del active_downloads[cancel_id]
@@ -382,7 +384,7 @@ async def ddl_call_back(bot, update):
         )
 
 
-async def download_coroutine(bot, session, url, file_name, message, start, cancel_id, display_file_name):
+async def download_coroutine(bot, session, url, file_name, chat_id, message_id, start, cancel_id, display_file_name):
     downloaded = 0
     display_message = ""
 
@@ -394,10 +396,24 @@ async def download_coroutine(bot, session, url, file_name, message, start, cance
             if "text" in content_type and total_length < 500:
                 return await response.release()
 
-            # Initial message with 0% progress
-            await progress_for_download(
-                0, total_length, message, start, display_file_name, cancel_id
-            )
+            # Update message with cancel button
+            cancel_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_dl_{cancel_id}")]
+            ])
+
+            try:
+                await bot.edit_message_text(
+                    chat_id,
+                    message_id,
+                    text=f"""📥 Downloading...
+
+File Name: {display_file_name}
+File Size: {humanbytes(total_length)}
+Progress: 0%""",
+                    reply_markup=cancel_markup
+                )
+            except Exception as e:
+                logger.warning(f"Could not update message: {e}")
 
             with open(file_name, "wb") as f_handle:
                 while True:
@@ -416,15 +432,33 @@ async def download_coroutine(bot, session, url, file_name, message, start, cance
                     diff = now - start
 
                     if round(diff % 5.00) == 0 or downloaded == total_length:
-                        # Use the visual progress bar function
-                        await progress_for_download(
-                            downloaded, total_length, message, start, display_file_name, cancel_id
-                        )
+                        percentage = downloaded * 100 / total_length if total_length > 0 else 0
+                        speed = downloaded / diff if diff > 0 else 0
+                        elapsed_time = round(diff) * 1000
+                        time_to_completion = round((total_length - downloaded) / speed) * 1000 if speed > 0 else 0
+                        estimated_total_time = elapsed_time + time_to_completion
 
-            # Show 100% completion
-            await progress_for_download(
-                total_length, total_length, message, start, display_file_name, cancel_id
-            )
+                        try:
+                            current_message = f"""📥 Downloading...
+
+File Name: {display_file_name}
+File Size: {humanbytes(total_length)}
+Downloaded: {humanbytes(downloaded)}
+Progress: {percentage:.1f}%
+Speed: {humanbytes(speed)}/s
+ETA: {TimeFormatter(estimated_total_time)}"""
+
+                            if current_message != display_message:
+                                await bot.edit_message_text(
+                                    chat_id,
+                                    message_id,
+                                    text=current_message,
+                                    reply_markup=cancel_markup
+                                )
+                                display_message = current_message
+                        except Exception as e:
+                            logger.info(str(e))
+                            pass
 
             return True
 
