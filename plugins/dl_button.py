@@ -19,7 +19,7 @@ from plugins.script import Translation
 from plugins.thumbnail import *
 from plugins.database.database import db
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
-from plugins.functions.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter
+from plugins.functions.display_progress import progress_for_pyrogram, progress_for_download, humanbytes, TimeFormatter
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
 from PIL import Image
@@ -396,24 +396,15 @@ async def download_coroutine(bot, session, url, file_name, chat_id, message_id, 
             if "text" in content_type and total_length < 500:
                 return await response.release()
 
-            # Update message with cancel button
+            # Update message with cancel button and visual progress bar
             cancel_markup = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⛔ Cancel", callback_data=f"cancel_dl_{cancel_id}")]
             ])
 
-            try:
-                await bot.edit_message_text(
-                    chat_id,
-                    message_id,
-                    text=f"""📥 Downloading...
-
-File Name: {display_file_name}
-File Size: {humanbytes(total_length)}
-Progress: 0%""",
-                    reply_markup=cancel_markup
-                )
-            except Exception as e:
-                logger.warning(f"Could not update message: {e}")
+            # Initial message with 0% progress
+            await progress_for_download(
+                0, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+            )
 
             with open(file_name, "wb") as f_handle:
                 while True:
@@ -432,33 +423,15 @@ Progress: 0%""",
                     diff = now - start
 
                     if round(diff % 5.00) == 0 or downloaded == total_length:
-                        percentage = downloaded * 100 / total_length if total_length > 0 else 0
-                        speed = downloaded / diff if diff > 0 else 0
-                        elapsed_time = round(diff) * 1000
-                        time_to_completion = round((total_length - downloaded) / speed) * 1000 if speed > 0 else 0
-                        estimated_total_time = elapsed_time + time_to_completion
+                        # Use the visual progress bar function
+                        await progress_for_download(
+                            downloaded, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+                        )
 
-                        try:
-                            current_message = f"""📥 Downloading...
-
-File Name: {display_file_name}
-File Size: {humanbytes(total_length)}
-Downloaded: {humanbytes(downloaded)}
-Progress: {percentage:.1f}%
-Speed: {humanbytes(speed)}/s
-ETA: {TimeFormatter(estimated_total_time)}"""
-
-                            if current_message != display_message:
-                                await bot.edit_message_text(
-                                    chat_id,
-                                    message_id,
-                                    text=current_message,
-                                    reply_markup=cancel_markup
-                                )
-                                display_message = current_message
-                        except Exception as e:
-                            logger.info(str(e))
-                            pass
+            # Show 100% completion
+            await progress_for_download(
+                total_length, total_length, None, start, display_file_name, cancel_id, bot, chat_id, message_id
+            )
 
             return True
 
