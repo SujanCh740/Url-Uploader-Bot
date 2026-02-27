@@ -9,11 +9,11 @@ import time
 import signal
 from datetime import datetime
 from pyrogram import enums
-from pyrogram.types import InputMediaPhoto
+from pyrogram.types import InputMediaPhoto, InlineKeyboardMarkup, InlineKeyboardButton
 from plugins.config import Config
 from plugins.script import Translation
 from plugins.thumbnail import *
-from plugins.functions.display_progress import progress_for_pyrogram, humanbytes
+from plugins.functions.display_progress import progress_for_pyrogram, humanbytes, active_uploads
 from plugins.database.database import db
 from PIL import Image
 from plugins.functions.ran_text import random_char
@@ -279,6 +279,7 @@ async def youtube_dl_call_back(bot, update):
             # Import active downloads from dl_button
             from plugins.dl_button import active_downloads
             active_downloads[upload_cancel_id] = {"cancelled": False}
+            active_uploads[upload_cancel_id] = {"cancelled": False}
 
             start_time = time.time()
             upload_cancelled = False
@@ -286,9 +287,10 @@ async def youtube_dl_call_back(bot, update):
             # Determine caption: auto_caption uses filename with underscores removed
             auto_caption_enabled = await db.get_auto_caption(update.from_user.id)
             if auto_caption_enabled:
-                upload_caption = custom_file_name.replace("_", " ")
+                upload_caption = f"<b>{custom_file_name.replace('_', ' ')}</b>"
             else:
-                upload_caption = description if description else custom_file_name
+                caption_text = description if description else custom_file_name
+                upload_caption = f"<b>{caption_text}</b>"
 
             try:
                 if not await db.get_upload_as_doc(update.from_user.id):
@@ -298,11 +300,13 @@ async def youtube_dl_call_back(bot, update):
                         file_name=custom_file_name,
                         thumb=thumbnail,
                         caption=upload_caption,
+                        parse_mode=enums.ParseMode.HTML,
                         progress=progress_for_pyrogram,
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 else:
@@ -317,11 +321,13 @@ async def youtube_dl_call_back(bot, update):
                         height=height,
                         supports_streaming=True,
                         thumb=thumb_image_path,
+                        parse_mode=enums.ParseMode.HTML,
                         progress=progress_for_pyrogram,
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
 
@@ -334,11 +340,13 @@ async def youtube_dl_call_back(bot, update):
                         caption=upload_caption,
                         duration=duration,
                         thumb=thumbnail,
+                        parse_mode=enums.ParseMode.HTML,
                         progress=progress_for_pyrogram,
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 elif tg_send_type == "vm":
@@ -353,7 +361,8 @@ async def youtube_dl_call_back(bot, update):
                         progress_args=(
                             Translation.UPLOAD_START,
                             update.message,
-                            start_time
+                            start_time,
+                            upload_cancel_id
                         )
                     )
                 else:
@@ -371,6 +380,8 @@ async def youtube_dl_call_back(bot, update):
 
             if upload_cancel_id in active_downloads:
                 del active_downloads[upload_cancel_id]
+            if upload_cancel_id in active_uploads:
+                del active_uploads[upload_cancel_id]
 
             if upload_cancelled:
                 await update.message.edit_caption(
