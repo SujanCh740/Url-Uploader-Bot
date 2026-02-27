@@ -5,6 +5,7 @@ import zipfile
 import logging
 import shutil
 import re
+import time
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from plugins.functions.display_progress import progress_for_pyrogram
 from plugins.script import Translation
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Video file extensions
 VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp'}
+
+# Global dictionary to track active unzip operations for cancellation
+active_unzip_operations = {}
 
 
 def is_zip_file(file_path):
@@ -100,7 +104,7 @@ def is_video_file(file_path):
     return ext in VIDEO_EXTENSIONS
 
 
-def extract_zip(zip_path, extract_to):
+def extract_zip(zip_path, extract_to, cancel_id=None):
     """
     Extract a ZIP file to the specified directory.
     Returns a list of extracted file paths with fixed extensions.
@@ -110,6 +114,12 @@ def extract_zip(zip_path, extract_to):
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             # Check for potential zip bomb (zip slip attack)
             for member in zip_ref.namelist():
+                # Check if cancelled
+                if cancel_id and cancel_id in active_unzip_operations:
+                    if active_unzip_operations[cancel_id].get("cancelled"):
+                        logger.info(f"Unzip cancelled for {cancel_id}")
+                        return []
+
                 member_path = os.path.join(extract_to, member)
                 if not os.path.commonpath([extract_to, member_path]).startswith(extract_to):
                     logger.warning(f"Potential zip slip attack detected: {member}")
@@ -121,6 +131,12 @@ def extract_zip(zip_path, extract_to):
             # Get list of extracted files and fix extensions
             for root, dirs, files in os.walk(extract_to):
                 for file in files:
+                    # Check if cancelled
+                    if cancel_id and cancel_id in active_unzip_operations:
+                        if active_unzip_operations[cancel_id].get("cancelled"):
+                            logger.info(f"Unzip cancelled during file walk for {cancel_id}")
+                            return []
+
                     file_path = os.path.join(root, file)
                     # Skip the original zip file
                     if file_path != zip_path:
@@ -141,21 +157,28 @@ def extract_zip(zip_path, extract_to):
         return []
 
 
-async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbnail, start_time):
+async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbnail, start_time, cancel_id=None):
     """
     Upload a file as video or document based on file type.
     Returns True if upload successful.
     """
     try:
+        # Check if cancelled before uploading
+        if cancel_id and cancel_id in active_unzip_operations:
+            if active_unzip_operations[cancel_id].get("cancelled"):
+                logger.info(f"Upload cancelled for file {file_name}")
+                return False
+
         # Determine caption: auto_caption uses filename with underscores removed
         auto_caption_enabled = await db.get_auto_caption(update.from_user.id)
         if auto_caption_enabled:
-            caption = file_name.replace("_", " ")
+            caption = f"<b>{file_name.replace('_', ' ')}</b>"
         else:
             # Use CUSTOM_CAPTION_UL_FILE or fallback to filename
-            caption = Translation.CUSTOM_CAPTION_UL_FILE
-            if not caption or caption.strip() == "":
-                caption = file_name
+            caption_text = Translation.CUSTOM_CAPTION_UL_FILE
+            if not caption_text or caption_text.strip() == "":
+                caption_text = file_name
+            caption = f"<b>{caption_text}</b>"
 
         if is_video_file(file_path):
             # Upload as video
@@ -208,7 +231,7 @@ async def upload_file_with_smart_type(bot, update, file_path, file_name, thumbna
         return False
 
 
-async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_directory):
+async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_directory, cancel_id=None):
     """
     Upload extracted files to Telegram in episode sequence.
     Returns True if all files uploaded successfully.
@@ -227,6 +250,21 @@ async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_d
     total_files = len(extracted_files)
 
     for index, file_path in enumerate(extracted_files, 1):
+        # Check if cancelled before each file
+        if cancel_id and cancel_id in active_unzip_operations:
+            if active_unzip_operations[cancel_id].get("cancelled"):
+                await update.message.edit_caption(
+                    caption="⛔ Unzip Cancelled",
+                    reply_markup=None
+                )
+                # Cleanup
+                try:
+                    if os.path.exists(tmp_directory):
+                        shutil.rmtree(tmp_directory)
+                except Exception as e:
+                    logger.error(f"Error cleaning up: {e}")
+                return False
+
         if not os.path.exists(file_path):
             failed_count += 1
             continue
@@ -245,14 +283,21 @@ async def upload_extracted_files(bot, update, extracted_files, start_time, tmp_d
             if season < 9999 or episode < 9999:
                 episode_info = f" (S{season:02d}EP{episode:02d})"
 
+            # Create cancel button markup
+            cancel_markup = None
+            if cancel_id:
+                cancel_markup = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+                ])
+
             await update.message.edit_caption(
                 caption=f"📤 Uploading: {file_name}{episode_info}\n\nFile {index} of {total_files}",
-                reply_markup=None
+                reply_markup=cancel_markup
             )
 
             # Upload with smart type detection
             success = await upload_file_with_smart_type(
-                bot, update, file_path, file_name, thumbnail, start_time
+                bot, update, file_path, file_name, thumbnail, start_time, cancel_id
             )
 
             if success:
@@ -312,24 +357,55 @@ async def handle_auto_unzip(bot, update, download_directory, tmp_directory_for_e
 
         logger.info("Auto unzip is enabled, extracting...")
 
+        # Generate cancel ID for unzip operation
+        cancel_id = f"{update.from_user.id}_{int(time.time())}_unzip"
+
         # Create extraction directory
         extract_dir = os.path.join(tmp_directory_for_each_user, "extracted")
         os.makedirs(extract_dir, exist_ok=True)
 
-        # Update message
+        # Register active unzip operation
+        active_unzip_operations[cancel_id] = {"cancelled": False}
+
+        # Create cancel button markup
+        cancel_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+        ])
+
+        # Update message with cancel button
         await update.message.edit_caption(
             caption="📦 ZIP FILE DETECTED!\n\n🔄 Extracting Files...",
-            reply_markup=None
+            reply_markup=cancel_markup
         )
 
         # Extract ZIP file
-        extracted_files = extract_zip(download_directory, extract_dir)
+        extracted_files = extract_zip(download_directory, extract_dir, cancel_id)
+
+        # Check if cancelled during extraction
+        if cancel_id in active_unzip_operations and active_unzip_operations[cancel_id].get("cancelled"):
+            await update.message.edit_caption(
+                caption="⛔ Unzip Cancelled",
+                reply_markup=None
+            )
+            # Cleanup
+            try:
+                if os.path.exists(extract_dir):
+                    shutil.rmtree(extract_dir)
+                if os.path.exists(download_directory):
+                    os.remove(download_directory)
+            except Exception as e:
+                logger.error(f"Error cleaning up after cancel: {e}")
+            if cancel_id in active_unzip_operations:
+                del active_unzip_operations[cancel_id]
+            return True  # Return True to prevent normal upload
 
         if not extracted_files:
             await update.message.edit_caption(
                 caption="❌ Failed to extract ZIP file",
                 reply_markup=None
             )
+            if cancel_id in active_unzip_operations:
+                del active_unzip_operations[cancel_id]
             return False
 
         # Delete the original ZIP file after extraction
@@ -338,15 +414,35 @@ async def handle_auto_unzip(bot, update, download_directory, tmp_directory_for_e
         except Exception as e:
             logger.error(f"Error removing ZIP file: {e}")
 
+        # Update message with cancel button for upload phase
+        cancel_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⛔ Cancel Unzip", callback_data=f"cancel_unzip_{cancel_id}")]
+        ])
+
         # Upload extracted files
         await update.message.edit_caption(
             caption=f"📦 Extraction Complete!\n📁 Found {len(extracted_files)} Files\n📤 Starting Upload In Sequence...",
-            reply_markup=None
+            reply_markup=cancel_markup
         )
 
-        await upload_extracted_files(bot, update, extracted_files, start_time, tmp_directory_for_each_user)
-        return True
+        result = await upload_extracted_files(bot, update, extracted_files, start_time, tmp_directory_for_each_user, cancel_id)
+
+        # Clean up unzip operation tracking
+        if cancel_id in active_unzip_operations:
+            del active_unzip_operations[cancel_id]
+
+        return result
 
     except Exception as e:
         logger.error(f"Error in auto unzip: {e}")
         return False
+
+
+# Handler for unzip cancel callback
+async def handle_unzip_cancel(bot, update, cancel_id):
+    """Handle cancel for unzip operations"""
+    if cancel_id in active_unzip_operations:
+        active_unzip_operations[cancel_id]["cancelled"] = True
+        await update.answer("Cancelling unzip...", show_alert=False)
+    else:
+        await update.answer("Unzip operation not found or already completed", show_alert=True)
