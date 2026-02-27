@@ -6,7 +6,7 @@ import logging
 import shutil
 import re
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from plugins.functions.display_progress import progress_for_pyrogram
+from plugins.functions.display_progress import progress_for_pyrogram, progress_for_unzip
 from plugins.script import Translation
 from plugins.database.database import db
 from plugins.thumbnail import Gthumb01, Mdata01, Gthumb02
@@ -100,23 +100,45 @@ def is_video_file(file_path):
     return ext in VIDEO_EXTENSIONS
 
 
-def extract_zip(zip_path, extract_to):
+async def extract_zip(zip_path, extract_to, message=None, file_name=""):
     """
-    Extract a ZIP file to the specified directory.
+    Extract a ZIP file to the specified directory with progress tracking.
     Returns a list of extracted file paths with fixed extensions.
     """
     extracted_files = []
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            # Get list of files to extract
+            file_list = zip_ref.namelist()
+            total_files = len(file_list)
+            total_size = sum(info.file_size for info in zip_ref.infolist())
+
             # Check for potential zip bomb (zip slip attack)
-            for member in zip_ref.namelist():
+            for member in file_list:
                 member_path = os.path.join(extract_to, member)
                 if not os.path.commonpath([extract_to, member_path]).startswith(extract_to):
                     logger.warning(f"Potential zip slip attack detected: {member}")
                     continue
 
-            # Extract all files
-            zip_ref.extractall(extract_to)
+            # Extract files with progress tracking
+            extracted_size = 0
+            for index, member in enumerate(file_list):
+                try:
+                    zip_ref.extract(member, extract_to)
+
+                    # Calculate progress
+                    member_info = zip_ref.getinfo(member)
+                    extracted_size += member_info.file_size
+
+                    # Update progress every few files or if message object is provided
+                    if message and (index % 3 == 0 or index == total_files - 1):
+                        await progress_for_unzip(
+                            extracted_size, total_size, message, file_name, index + 1, total_files
+                        )
+
+                except Exception as e:
+                    logger.warning(f"Error extracting {member}: {e}")
+                    continue
 
             # Get list of extracted files and fix extensions
             for root, dirs, files in os.walk(extract_to):
@@ -322,8 +344,9 @@ async def handle_auto_unzip(bot, update, download_directory, tmp_directory_for_e
             reply_markup=None
         )
 
-        # Extract ZIP file
-        extracted_files = extract_zip(download_directory, extract_dir)
+        # Extract ZIP file with progress tracking
+        zip_file_name = os.path.basename(download_directory)
+        extracted_files = await extract_zip(download_directory, extract_dir, update.message, zip_file_name)
 
         if not extracted_files:
             await update.message.edit_caption(
